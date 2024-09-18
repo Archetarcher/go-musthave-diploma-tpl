@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/store/pgsql"
 	"time"
@@ -17,7 +18,7 @@ func NewPGUserRepository(store *pgsql.Store) *PGUserRepository {
 	return &PGUserRepository{store: store}
 }
 func (r *PGUserRepository) Create(ctx context.Context, user domain.User) (*domain.User, error) {
-	var userId int
+	var userID int
 	rows, err := r.store.DB.NamedQueryContext(ctx, userCreateQuery, user)
 	if err != nil {
 		return nil, &Error{
@@ -27,7 +28,7 @@ func (r *PGUserRepository) Create(ctx context.Context, user domain.User) (*domai
 		}
 	}
 	if rows.Next() {
-		err = rows.Scan(&userId)
+		err = rows.Scan(&userID)
 		if err != nil {
 			return nil, &Error{
 				Time:    time.Now(),
@@ -35,7 +36,14 @@ func (r *PGUserRepository) Create(ctx context.Context, user domain.User) (*domai
 				Err:     err,
 			}
 		}
-		user.ID = userId
+		user.ID = userID
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, &Error{
+			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
+			Err:     err,
+		}
 	}
 
 	return &user, nil
@@ -71,11 +79,11 @@ func (r *PGUserRepository) GetUserByLogin(ctx context.Context, login string) (*d
 	}
 	return &user, nil
 }
-func (r *PGUserRepository) GetUserById(ctx context.Context, id int) (*domain.User, error) {
+func (r *PGUserRepository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 
 	var user domain.User
 	err := r.store.DB.GetContext(ctx, &user,
-		userGetByIdQuery, id)
+		userGetByIDQuery, id)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

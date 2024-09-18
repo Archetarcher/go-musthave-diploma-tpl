@@ -27,7 +27,7 @@ func main() {
 
 	ctx := context.Background()
 
-	storage, err := pgsql.NewStore(ctx, &pgsql.Config{DatabaseUri: c.DatabaseUri, MigrationsPath: c.MigrationsPath})
+	storage, err := pgsql.NewStore(ctx, &pgsql.Config{DatabaseURI: c.DatabaseURI, MigrationsPath: c.MigrationsPath})
 	if err != nil {
 		logger.Log.Error("failed to init storage with error", zap.Error(err))
 

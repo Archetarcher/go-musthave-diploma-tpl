@@ -7,7 +7,7 @@ import (
 
 const (
 	envRunAddrName              = "RUN_ADDRESS"
-	envDatabaseUriName          = "DATABASE_URI"
+	envDatabaseURIName          = "DATABASE_URI"
 	envAccrualSystemAddressName = "ACCRUAL_SYSTEM_ADDRESS"
 	envTokenKeyName             = "TOKEN_KEY"
 	envTokenExpiresName         = "TOKEN_EXPIRES_IN_MINUTES"
@@ -42,7 +42,7 @@ func getEnvOrDefault(env string, def any, t int) any {
 
 func (c *AppConfig) parseEnv() {
 	c.RunAddr = getEnvOrDefault(envRunAddrName, c.RunAddr, 1).(string)
-	c.DatabaseUri = getEnvOrDefault(envDatabaseUriName, c.DatabaseUri, 1).(string)
+	c.DatabaseURI = getEnvOrDefault(envDatabaseURIName, c.DatabaseURI, 1).(string)
 	c.AccrualSystemAddress = getEnvOrDefault(envAccrualSystemAddressName, c.AccrualSystemAddress, 1).(string)
 	c.Token.Key = getEnvOrDefault(envTokenKeyName, c.Token.Key, 1).(string)
 	c.Token.ExpiresInMinutes = getEnvOrDefault(envTokenExpiresName, c.Token.ExpiresInMinutes, 2).(int)

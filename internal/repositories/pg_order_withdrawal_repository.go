@@ -19,7 +19,7 @@ func NewPGOrderWithdrawalRepository(store *pgsql.Store) *PGOrderWithdrawalReposi
 	return &PGOrderWithdrawalRepository{store: store}
 }
 func (r *PGOrderWithdrawalRepository) Create(ctx context.Context, order domain.OrderWithdrawal) (*domain.OrderWithdrawal, error) {
-	var orderId string
+	var orderID string
 	rows, err := r.store.DB.NamedQueryContext(ctx, orderWithdrawalCreateQuery, order)
 	if err != nil {
 		return nil, &Error{
@@ -28,23 +28,30 @@ func (r *PGOrderWithdrawalRepository) Create(ctx context.Context, order domain.O
 		}
 	}
 	if rows.Next() {
-		err = rows.Scan(&orderId)
+		err = rows.Scan(&orderID)
 		if err != nil {
 			return nil, &Error{
 				Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
 				Err:     err,
 			}
 		}
-		order.OrderId = orderId
+		order.OrderID = orderID
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, &Error{
+			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
+			Err:     err,
+		}
 	}
 
 	return &order, nil
 }
-func (r *PGOrderWithdrawalRepository) GetOrderByUser(ctx context.Context, userId int, orderId string) (*domain.OrderWithdrawal, error) {
+func (r *PGOrderWithdrawalRepository) GetOrderByUser(ctx context.Context, userID int, orderID string) (*domain.OrderWithdrawal, error) {
 	var order domain.OrderWithdrawal
 
 	err := r.store.DB.GetContext(ctx, &order,
-		orderWithdrawalGetByUserIdQuery, userId, orderId)
+		orderWithdrawalGetByUserIDQuery, userID, orderID)
 
 	logger.Log.Info("order user", zap.Any("order", order))
 
@@ -65,7 +72,7 @@ func (r *PGOrderWithdrawalRepository) GetAllByUser(ctx context.Context, id int) 
 	var orders []domain.OrderWithdrawal
 
 	err := r.store.DB.SelectContext(ctx, &orders,
-		orderWithdrawalGetAllByUserIdQuery, id)
+		orderWithdrawalGetAllByUserIDQuery, id)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -85,7 +92,7 @@ func (r *PGOrderWithdrawalRepository) GetAllSumByUser(ctx context.Context, id in
 	var sum float64
 
 	err := r.store.DB.GetContext(ctx, &sum,
-		orderWithdrawalGetAllByUserSumIdQuery, id)
+		orderWithdrawalGetAllByUserSumIDQuery, id)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil

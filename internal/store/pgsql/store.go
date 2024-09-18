@@ -3,9 +3,11 @@ package pgsql
 import (
 	"context"
 	"fmt"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -15,7 +17,7 @@ type Store struct {
 }
 
 func NewStore(ctx context.Context, conf *Config) (*Store, error) {
-	db := sqlx.MustOpen("pgx", conf.DatabaseUri)
+	db := sqlx.MustOpen("pgx", conf.DatabaseURI)
 
 	store := Store{
 		DB:     db,
@@ -50,13 +52,13 @@ func (s *Store) CheckConnection(ctx context.Context) error {
 func (s *Store) Close(ctx context.Context) {
 	err := s.DB.Close()
 	if err != nil {
-		//log
+		logger.Log.Info("Error close db", zap.Error(err))
 	}
 }
 func (s *Store) RunMigrations(ctx context.Context) error {
-	db, err := goose.OpenDBWithDriver("pgx", s.config.DatabaseUri)
+	db, err := goose.OpenDBWithDriver("pgx", s.config.DatabaseURI)
 	if err != nil {
-		// log fatal
+		logger.Log.Info("Error connect db", zap.Error(err))
 	}
 
 	if err = goose.RunContext(ctx, "up", db, s.config.MigrationsPath); err != nil {

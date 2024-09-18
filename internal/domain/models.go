@@ -13,8 +13,8 @@ type User struct {
 
 type OrderAccrual struct {
 	ID                  int        `json:"-" db:"id"`
-	OrderId             string     `json:"number" db:"order_id" `
-	UserId              int64      `json:"-" db:"user_id" `
+	OrderID             string     `json:"number" db:"order_id" `
+	UserID              int64      `json:"-" db:"user_id" `
 	Status              string     `json:"status" db:"status"`
 	Amount              *float64   `json:"accrual" db:"amount"`
 	UploadedAt          ParsedTime `json:"uploaded_at" db:"uploaded_at"`
@@ -25,8 +25,8 @@ type OrderAccrual struct {
 
 type OrderWithdrawal struct {
 	ID        int        `json:"-" db:"id"`
-	OrderId   string     `json:"order" db:"order_id" `
-	UserId    int64      `json:"-" db:"user_id" `
+	OrderID   string     `json:"order" db:"order_id" `
+	UserID    int64      `json:"-" db:"user_id" `
 	Amount    *float64   `json:"sum" db:"amount"`
 	CreatedAt ParsedTime `json:"processed_at" db:"created_at"`
 }

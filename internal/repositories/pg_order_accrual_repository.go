@@ -21,7 +21,7 @@ func NewPGOrderAccrualRepository(store *pgsql.Store) *PGOrderAccrualRepository {
 }
 func (r *PGOrderAccrualRepository) Create(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error) {
 	logger.Log.Info("order data repo", zap.Any("order", order))
-	var orderId string
+	var orderID string
 	rows, err := r.store.DB.NamedQueryContext(ctx, orderAccrualCreateQuery, order)
 	if err != nil {
 		return nil, &Error{
@@ -30,22 +30,29 @@ func (r *PGOrderAccrualRepository) Create(ctx context.Context, order domain.Orde
 		}
 	}
 	if rows.Next() {
-		err = rows.Scan(&orderId)
+		err = rows.Scan(&orderID)
 		if err != nil {
 			return nil, &Error{
 				Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
 				Err:     err,
 			}
 		}
-		order.OrderId = orderId
+		order.OrderID = orderID
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, &Error{
+			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
+			Err:     err,
+		}
 	}
 
 	return &order, nil
 }
-func (r *PGOrderAccrualRepository) GetById(ctx context.Context, id string) (*domain.OrderAccrual, error) {
+func (r *PGOrderAccrualRepository) GetByID(ctx context.Context, id string) (*domain.OrderAccrual, error) {
 	var order domain.OrderAccrual
 
-	err := r.store.DB.GetContext(ctx, &order, orderAccrualGetByIdQuery, id)
+	err := r.store.DB.GetContext(ctx, &order, orderAccrualGetByIDQuery, id)
 
 	logger.Log.Info("order id", zap.Any("order", order))
 
@@ -55,18 +62,18 @@ func (r *PGOrderAccrualRepository) GetById(ctx context.Context, id string) (*dom
 
 	if err != nil {
 		return nil, &Error{
-			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository GetById()"),
+			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository GetByID()"),
 			Err:     err,
 		}
 	}
 	return &order, nil
 }
 
-func (r *PGOrderAccrualRepository) GetOrderByUser(ctx context.Context, userId int, orderId string) (*domain.OrderAccrual, error) {
+func (r *PGOrderAccrualRepository) GetOrderByUser(ctx context.Context, userID int, orderID string) (*domain.OrderAccrual, error) {
 	var order domain.OrderAccrual
 
 	err := r.store.DB.GetContext(ctx, &order,
-		orderAccrualGetByUserIdQuery, userId, orderId)
+		orderAccrualGetByUserIDQuery, userID, orderID)
 
 	logger.Log.Info("order user", zap.Any("order", order))
 
@@ -86,7 +93,7 @@ func (r *PGOrderAccrualRepository) GetAllByUser(ctx context.Context, id int) ([]
 	var orders []domain.OrderAccrual
 
 	err := r.store.DB.SelectContext(ctx, &orders,
-		orderAccrualGetAllByUserIdQuery, id)
+		orderAccrualGetAllByUserIDQuery, id)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

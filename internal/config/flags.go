@@ -6,7 +6,7 @@ import (
 
 const (
 	flagRunAddrName                = "a"
-	flagDatabaseUriName            = "d"
+	flagDatabaseURIName            = "d"
 	flagAccrualSystemAddressName   = "r"
 	flagTokenKeyName               = "k"
 	flagTokenExpiresName           = "e"
@@ -21,7 +21,7 @@ func (c *AppConfig) parseFlags() {
 func (c *AppConfig) initFlags() {
 
 	flag.StringVar(&c.RunAddr, flagRunAddrName, ":8080", "address and port to run server")
-	flag.StringVar(&c.DatabaseUri, flagDatabaseUriName, "postgres://postgres:postgres@127.0.0.1:5432/gophermart?sslmode=disable", "database uri")
+	flag.StringVar(&c.DatabaseURI, flagDatabaseURIName, "postgres://postgres:postgres@127.0.0.1:5432/gophermart?sslmode=disable", "database uri")
 	flag.StringVar(&c.AccrualSystemAddress, flagAccrualSystemAddressName, "", "accrual system address")
 	flag.StringVar(&c.Token.Key, flagTokenKeyName, "Zswx2zqELD", "key for token")
 	flag.IntVar(&c.Token.ExpiresInMinutes, flagTokenExpiresName, 60, "token expires in minute")

@@ -42,14 +42,14 @@ func IsAuthorized(requestContext context.Context) bool {
 	return false
 }
 
-func GetIdFromToken(requestContext context.Context) (int, error) {
+func GetIDFromToken(requestContext context.Context) (int, error) {
 	_, claims, err := jwtauth.FromContext(requestContext)
 	if err != nil {
 		return 0, err
 	}
-	userIdFromClaims := int(claims["id"].(float64))
+	userIDFromClaims := int(claims["id"].(float64))
 
-	return userIdFromClaims, nil
+	return userIDFromClaims, nil
 
 }
 func GenerateAuthToken(appConfig *config.AppConfig) {

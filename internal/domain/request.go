@@ -6,10 +6,10 @@ type AuthRequest struct {
 }
 
 type OrderAccrualRequest struct {
-	OrderId string `json:"order_id" validate:"required"`
+	OrderID string `json:"order_id" validate:"required"`
 }
 
 type OrderWithdrawalRequest struct {
-	OrderId string  `json:"order" validate:"required"`
+	OrderID string  `json:"order" validate:"required"`
 	Sum     float64 `json:"sum" validate:"required"`
 }

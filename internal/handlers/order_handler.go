@@ -148,7 +148,7 @@ func validateOrderWithdrawalRequest(request *http.Request) (*domain.OrderWithdra
 		}
 	}
 
-	orderId, err := strconv.Atoi(o.OrderId)
+	orderID, err := strconv.Atoi(o.OrderID)
 	if err != nil {
 		return nil, &RestError{
 			Code:    http.StatusUnprocessableEntity,
@@ -156,7 +156,7 @@ func validateOrderWithdrawalRequest(request *http.Request) (*domain.OrderWithdra
 			Err:     err,
 		}
 	}
-	if !util.LuhnValid(orderId) {
+	if !util.LuhnValid(orderID) {
 		return nil, &RestError{
 			Code:    http.StatusUnprocessableEntity,
 			Message: "invalid order format",
@@ -177,9 +177,9 @@ func validateOrderAccrualRequest(request *http.Request) (*domain.OrderAccrualReq
 			Err:     err,
 		}
 	}
-	var orderId int
+	var orderID int
 
-	err = json.Unmarshal(body, &orderId)
+	err = json.Unmarshal(body, &orderID)
 	if err != nil {
 		return nil, &RestError{
 			Code:    http.StatusBadRequest,
@@ -187,7 +187,7 @@ func validateOrderAccrualRequest(request *http.Request) (*domain.OrderAccrualReq
 			Err:     err,
 		}
 	}
-	if !util.LuhnValid(orderId) {
+	if !util.LuhnValid(orderID) {
 		return nil, &RestError{
 			Code:    http.StatusUnprocessableEntity,
 			Message: "invalid order format",
@@ -195,7 +195,7 @@ func validateOrderAccrualRequest(request *http.Request) (*domain.OrderAccrualReq
 		}
 	}
 
-	o.OrderId = strconv.Itoa(orderId)
+	o.OrderID = strconv.Itoa(orderID)
 
 	v := validator.New()
 	err = v.Struct(o)

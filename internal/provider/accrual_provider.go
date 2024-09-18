@@ -25,13 +25,13 @@ type OrderAccrualRepository interface {
 	Update(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error)
 	GetAllByUser(ctx context.Context, user int) ([]domain.OrderAccrual, error)
 	GetOrderByUser(ctx context.Context, user int, order string) (*domain.OrderAccrual, error)
-	GetById(ctx context.Context, order string) (*domain.OrderAccrual, error)
+	GetByID(ctx context.Context, order string) (*domain.OrderAccrual, error)
 	GetOrdersByStatus(ctx context.Context, status []string) ([]domain.OrderAccrual, error)
 }
 type UserRepository interface {
 	Create(ctx context.Context, user domain.User) (*domain.User, error)
 	GetUserByLogin(ctx context.Context, login string) (*domain.User, error)
-	GetUserById(ctx context.Context, user int) (*domain.User, error)
+	GetUserByID(ctx context.Context, user int) (*domain.User, error)
 	UpdateUserBalance(ctx context.Context, user domain.User) (*domain.User, error)
 }
 
@@ -87,7 +87,7 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 		logger.Log.Info("started worker", zap.Any("id", id), zap.Any("order", order))
 
 		//send request to accrual
-		accrualResponse, err := getAccrual(fmt.Sprintf("%s/api/orders/%s", p.config.AccrualSystemAddress, order.OrderId), p.client)
+		accrualResponse, err := getAccrual(fmt.Sprintf("%s/api/orders/%s", p.config.AccrualSystemAddress, order.OrderID), p.client)
 		if err != nil {
 			logger.Log.Info("accrual request error", zap.Error(err))
 			// log error
@@ -104,7 +104,7 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 		// if status processing: do nothing, push order to queue again
 		// if status registered: do nothing, push order to queue again
 
-		if accrualResponse.Order != order.OrderId {
+		if accrualResponse.Order != order.OrderID {
 			logger.Log.Info("wrong order  error", zap.Error(err))
 			// log error
 			continue
@@ -123,7 +123,7 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 				continue
 			}
 
-			user, uErr := p.userRepo.GetUserById(ctx, int(order.UserId))
+			user, uErr := p.userRepo.GetUserByID(ctx, int(order.UserID))
 			if uErr != nil {
 				logger.Log.Info("user get error", zap.Error(err))
 

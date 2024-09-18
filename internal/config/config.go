@@ -9,7 +9,7 @@ func (c *AppConfig) ParseConfig() {
 
 type AppConfig struct {
 	RunAddr              string
-	DatabaseUri          string
+	DatabaseURI          string
 	MigrationsPath       string
 	AccrualSystemAddress string
 	Token                Token

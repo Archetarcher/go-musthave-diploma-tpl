@@ -18,7 +18,7 @@ type AuthService struct {
 type UserRepository interface {
 	Create(ctx context.Context, user domain.User) (*domain.User, error)
 	GetUserByLogin(ctx context.Context, login string) (*domain.User, error)
-	GetUserById(ctx context.Context, user int) (*domain.User, error)
+	GetUserByID(ctx context.Context, user int) (*domain.User, error)
 	UpdateUserBalance(ctx context.Context, user domain.User) (*domain.User, error)
 }
 
