@@ -4,13 +4,16 @@ import (
 	"context"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/config"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	"github.com/go-chi/jwtauth/v5"
 	jwt2 "github.com/golang-jwt/jwt/v4"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"go.uber.org/zap"
 	"time"
 )
 
 func CreateToken(user *domain.User, tokenConfig config.Token) (string, error) {
+	logger.Log.Info("user id token", zap.Any("user", user))
 	claims := jwt2.MapClaims{
 		"id": user.ID,
 	}
@@ -23,18 +26,20 @@ func CreateToken(user *domain.User, tokenConfig config.Token) (string, error) {
 
 	return token, nil
 }
-func IsAuthorized(requestContext context.Context) (bool, error) {
+func IsAuthorized(requestContext context.Context) bool {
 	token, _, err := jwtauth.FromContext(requestContext)
 
 	if err != nil {
-		return false, err
+		logger.Log.Info("401 error token")
+		return false
 	}
 
 	if token != nil && jwt.Validate(token) == nil {
-		return true, nil
+		logger.Log.Info("token valid")
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 func GetIdFromToken(requestContext context.Context) (int, error) {

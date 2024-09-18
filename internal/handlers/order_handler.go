@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/util"
 	"github.com/go-playground/validator/v10"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 type OrderHandler struct {
@@ -32,8 +35,8 @@ func (h *OrderHandler) RegisterAccrualOrder(writer http.ResponseWriter, request 
 	writer.Header().Set("Content-Type", "application/json")
 
 	order, err := validateOrderAccrualRequest(request)
-	fmt.Println("validated")
-	fmt.Println(order)
+	logger.Log.Info("validated order", zap.Any("order", order))
+
 	if err != nil {
 		sendResponse(enc, err, err.Code, writer)
 		return
@@ -54,8 +57,8 @@ func (h *OrderHandler) GetAllAccrual(writer http.ResponseWriter, request *http.R
 	writer.Header().Set("Content-Type", "application/json")
 
 	orders, err := h.service.GetAllAccrual(request.Context())
-	fmt.Println("orders handler")
-	fmt.Println(orders)
+	logger.Log.Info("orders handler", zap.Any("order", orders))
+
 	if err != nil {
 		sendResponse(enc, err, err.Code, writer)
 		return
@@ -137,11 +140,26 @@ func validateOrderWithdrawalRequest(request *http.Request) (*domain.OrderWithdra
 
 	v := validator.New()
 	err = v.Struct(o)
-
 	if err != nil {
 		return nil, &RestError{
 			Code:    http.StatusBadRequest,
 			Message: err.Error(),
+			Err:     err,
+		}
+	}
+
+	orderId, err := strconv.Atoi(o.OrderId)
+	if err != nil {
+		return nil, &RestError{
+			Code:    http.StatusUnprocessableEntity,
+			Message: "invalid order format",
+			Err:     err,
+		}
+	}
+	if !util.LuhnValid(orderId) {
+		return nil, &RestError{
+			Code:    http.StatusUnprocessableEntity,
+			Message: "invalid order format",
 			Err:     err,
 		}
 	}
@@ -159,8 +177,9 @@ func validateOrderAccrualRequest(request *http.Request) (*domain.OrderAccrualReq
 			Err:     err,
 		}
 	}
+	var orderId int
 
-	err = json.Unmarshal(body, &o)
+	err = json.Unmarshal(body, &orderId)
 	if err != nil {
 		return nil, &RestError{
 			Code:    http.StatusBadRequest,
@@ -168,6 +187,15 @@ func validateOrderAccrualRequest(request *http.Request) (*domain.OrderAccrualReq
 			Err:     err,
 		}
 	}
+	if !util.LuhnValid(orderId) {
+		return nil, &RestError{
+			Code:    http.StatusUnprocessableEntity,
+			Message: "invalid order format",
+			Err:     err,
+		}
+	}
+
+	o.OrderId = strconv.Itoa(orderId)
 
 	v := validator.New()
 	err = v.Struct(o)

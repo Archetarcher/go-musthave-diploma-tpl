@@ -2,12 +2,12 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/handlers"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/util"
+	"go.uber.org/zap"
 	"net/http"
-	"strconv"
 )
 
 type OrderService struct {
@@ -19,15 +19,15 @@ type OrderAccrualRepository interface {
 	Create(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error)
 	Update(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error)
 	GetAllByUser(ctx context.Context, user int) ([]domain.OrderAccrual, error)
-	GetOrderByUser(ctx context.Context, user int, order uint64) (*domain.OrderAccrual, error)
-	GetById(ctx context.Context, order uint64) (*domain.OrderAccrual, error)
+	GetOrderByUser(ctx context.Context, user int, order string) (*domain.OrderAccrual, error)
+	GetById(ctx context.Context, order string) (*domain.OrderAccrual, error)
 	GetOrdersByStatus(ctx context.Context, status []string) ([]domain.OrderAccrual, error)
 }
 
 type OrderWithdrawalRepository interface {
 	Create(ctx context.Context, order domain.OrderWithdrawal) (*domain.OrderWithdrawal, error)
 	GetAllByUser(ctx context.Context, user int) ([]domain.OrderWithdrawal, error)
-	GetOrderByUser(ctx context.Context, user int, order uint64) (*domain.OrderWithdrawal, error)
+	GetOrderByUser(ctx context.Context, user int, order string) (*domain.OrderWithdrawal, error)
 	GetAllSumByUser(ctx context.Context, user int) (float64, error)
 }
 
@@ -37,23 +37,17 @@ func NewOrderService(accrualRepo OrderAccrualRepository, withdrawalRepo OrderWit
 
 func (s *OrderService) RegisterAccrual(ctx context.Context, request *domain.OrderAccrualRequest) (*domain.SuccessResponse, *handlers.RestError) {
 	userId, err := util.GetIdFromToken(ctx)
+	logger.Log.Info("user id from claims", zap.Any("userId", userId))
+
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
-			Message: err.Error(),
-			Err:     err,
-		}
-	}
-	orderId, err := strconv.ParseUint(request.OrderId, 10, 64)
-	if err != nil {
-		return nil, &handlers.RestError{
-			Code:    http.StatusUnprocessableEntity,
 			Message: err.Error(),
 			Err:     err,
 		}
 	}
 
-	order, err := s.accrualRepo.GetById(ctx, orderId)
+	order, err := s.accrualRepo.GetById(ctx, request.OrderId)
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -61,8 +55,8 @@ func (s *OrderService) RegisterAccrual(ctx context.Context, request *domain.Orde
 			Err:     err,
 		}
 	}
-	fmt.Println("order")
-	fmt.Println(order)
+	logger.Log.Info("order", zap.Any("order", order))
+	logger.Log.Info("order user id ", zap.Any("user", userId))
 
 	if order != nil && int64(userId) != order.UserId {
 		return nil, &handlers.RestError{
@@ -79,8 +73,8 @@ func (s *OrderService) RegisterAccrual(ctx context.Context, request *domain.Orde
 		}, nil
 	}
 
-	accrual := float64(100)
-	newOrder, err := s.accrualRepo.Create(ctx, domain.OrderAccrual{UserId: int64(userId), OrderId: orderId, Amount: &accrual, Status: domain.OrderStatusNew})
+	accrual := float64(0)
+	newOrder, err := s.accrualRepo.Create(ctx, domain.OrderAccrual{UserId: int64(userId), OrderId: request.OrderId, Amount: &accrual, Status: domain.OrderStatusNew})
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -107,8 +101,9 @@ func (s *OrderService) GetAllAccrual(ctx context.Context) ([]domain.OrderAccrual
 	}
 
 	orders, err := s.accrualRepo.GetAllByUser(ctx, userId)
-	fmt.Println("orders")
-	fmt.Println(orders)
+
+	logger.Log.Info("orders", zap.Any("order", orders))
+
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -124,8 +119,8 @@ func (s *OrderService) GetAllAccrual(ctx context.Context) ([]domain.OrderAccrual
 			Err:     nil,
 		}
 	}
-	fmt.Println("ordersssss")
-	fmt.Println(orders)
+	logger.Log.Info("orders", zap.Any("order", orders))
+
 	return orders, nil
 
 }
@@ -139,16 +134,7 @@ func (s *OrderService) RegisterWithdrawal(ctx context.Context, request *domain.O
 		}
 	}
 
-	orderId, err := strconv.ParseUint(request.OrderId, 10, 64)
-	if err != nil {
-		return nil, &handlers.RestError{
-			Code:    http.StatusUnprocessableEntity,
-			Message: err.Error(),
-			Err:     err,
-		}
-	}
-
-	order, err := s.withdrawalRepo.GetOrderByUser(ctx, userId, orderId)
+	order, err := s.withdrawalRepo.GetOrderByUser(ctx, userId, request.OrderId)
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -172,7 +158,7 @@ func (s *OrderService) RegisterWithdrawal(ctx context.Context, request *domain.O
 		}
 	}
 
-	if (user.Balance - request.Sum) < 0 {
+	if (*user.Balance - request.Sum) < 0 {
 		return nil, &handlers.RestError{
 			Code:    http.StatusPaymentRequired,
 			Message: "low balance",
@@ -180,7 +166,7 @@ func (s *OrderService) RegisterWithdrawal(ctx context.Context, request *domain.O
 		}
 	}
 
-	_, err = s.withdrawalRepo.Create(ctx, domain.OrderWithdrawal{UserId: int64(userId), OrderId: orderId, Amount: &request.Sum})
+	_, err = s.withdrawalRepo.Create(ctx, domain.OrderWithdrawal{UserId: int64(userId), OrderId: request.OrderId, Amount: &request.Sum})
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -188,7 +174,7 @@ func (s *OrderService) RegisterWithdrawal(ctx context.Context, request *domain.O
 			Err:     err,
 		}
 	}
-	user.Balance -= request.Sum
+	*user.Balance -= request.Sum
 	_, err = s.userRepo.UpdateUserBalance(ctx, *user)
 	if err != nil {
 		return nil, &handlers.RestError{
@@ -215,8 +201,8 @@ func (s *OrderService) GetAllWithdrawal(ctx context.Context) ([]domain.OrderWith
 	}
 
 	orders, err := s.withdrawalRepo.GetAllByUser(ctx, userId)
-	fmt.Println("orders")
-	fmt.Println(orders)
+	logger.Log.Info("orders", zap.Any("order", orders))
+
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -237,7 +223,7 @@ func (s *OrderService) GetAllWithdrawal(ctx context.Context) ([]domain.OrderWith
 
 }
 func (s *OrderService) GetUserBalance(ctx context.Context) (*domain.UserBalanceResponse, *handlers.RestError) {
-	fmt.Println("GetUserBalance")
+	logger.Log.Info("GetUserBalance")
 
 	userId, err := util.GetIdFromToken(ctx)
 	if err != nil {
@@ -255,11 +241,9 @@ func (s *OrderService) GetUserBalance(ctx context.Context) (*domain.UserBalanceR
 			Err:     err,
 		}
 	}
-	fmt.Println(user)
 
 	totalWithdrawn, err := s.withdrawalRepo.GetAllSumByUser(ctx, userId)
-	fmt.Println("totalWithdrawal")
-	fmt.Println(totalWithdrawn)
+	logger.Log.Info("totalWithdrawal", zap.Any("totalWithdrawal", totalWithdrawn))
 	if err != nil {
 		return nil, &handlers.RestError{
 			Code:    http.StatusInternalServerError,
@@ -269,7 +253,7 @@ func (s *OrderService) GetUserBalance(ctx context.Context) (*domain.UserBalanceR
 	}
 
 	return &domain.UserBalanceResponse{
-		Current:   user.Balance,
+		Current:   *user.Balance,
 		Withdrawn: totalWithdrawn,
 	}, nil
 

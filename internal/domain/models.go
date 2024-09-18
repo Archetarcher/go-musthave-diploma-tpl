@@ -5,15 +5,15 @@ import (
 )
 
 type User struct {
-	ID      int     `json:"id" db:"id"`
-	Login   string  `json:"login" db:"login"`
-	Hash    string  `json:"-" db:"hash"`
-	Balance float64 `json:"-" db:"balance"`
+	ID      int      `json:"id" db:"id"`
+	Login   string   `json:"login" db:"login"`
+	Hash    string   `json:"-" db:"hash"`
+	Balance *float64 `json:"-" db:"balance"`
 }
 
 type OrderAccrual struct {
 	ID                  int        `json:"-" db:"id"`
-	OrderId             uint64     `json:"number" db:"order_id" `
+	OrderId             string     `json:"number" db:"order_id" `
 	UserId              int64      `json:"-" db:"user_id" `
 	Status              string     `json:"status" db:"status"`
 	Amount              *float64   `json:"accrual" db:"amount"`
@@ -25,10 +25,10 @@ type OrderAccrual struct {
 
 type OrderWithdrawal struct {
 	ID        int        `json:"-" db:"id"`
-	OrderId   uint64     `json:"order_id" db:"order_id" `
-	UserId    int64      `json:"user_id" db:"user_id" `
-	Amount    *float64   `json:"amount" db:"amount"`
-	CreatedAt ParsedTime `json:"created_at" db:"created_at"`
+	OrderId   string     `json:"order" db:"order_id" `
+	UserId    int64      `json:"-" db:"user_id" `
+	Amount    *float64   `json:"sum" db:"amount"`
+	CreatedAt ParsedTime `json:"processed_at" db:"created_at"`
 }
 
 type ParsedTime time.Time

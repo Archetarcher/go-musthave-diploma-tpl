@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/store/pgsql"
+	"go.uber.org/zap"
 )
 
 type PGOrderWithdrawalRepository struct {
@@ -17,29 +19,34 @@ func NewPGOrderWithdrawalRepository(store *pgsql.Store) *PGOrderWithdrawalReposi
 	return &PGOrderWithdrawalRepository{store: store}
 }
 func (r *PGOrderWithdrawalRepository) Create(ctx context.Context, order domain.OrderWithdrawal) (*domain.OrderWithdrawal, error) {
-
-	_, err := r.store.DB.NamedExecContext(ctx, orderWithdrawalCreateQuery, map[string]interface{}{
-		"user_id":  order.UserId,
-		"order_id": order.OrderId,
-		"amount":   order.Amount,
-	})
+	var orderId string
+	rows, err := r.store.DB.NamedQueryContext(ctx, orderWithdrawalCreateQuery, order)
 	if err != nil {
 		return nil, &Error{
 			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderWithdrawalRepository Create()"),
 			Err:     err,
 		}
 	}
+	if rows.Next() {
+		err = rows.Scan(&orderId)
+		if err != nil {
+			return nil, &Error{
+				Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
+				Err:     err,
+			}
+		}
+		order.OrderId = orderId
+	}
 
 	return &order, nil
 }
-func (r *PGOrderWithdrawalRepository) GetOrderByUser(ctx context.Context, userId int, orderId uint64) (*domain.OrderWithdrawal, error) {
+func (r *PGOrderWithdrawalRepository) GetOrderByUser(ctx context.Context, userId int, orderId string) (*domain.OrderWithdrawal, error) {
 	var order domain.OrderWithdrawal
 
 	err := r.store.DB.GetContext(ctx, &order,
 		orderWithdrawalGetByUserIdQuery, userId, orderId)
 
-	fmt.Println("order  user")
-	fmt.Println(order)
+	logger.Log.Info("order user", zap.Any("order", order))
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

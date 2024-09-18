@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS order_withdrawal
     id serial PRIMARY KEY,
     user_id INT NOT NULL,
     order_id BIGINT NOT NULL UNIQUE,
-    amount BIGINT NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
 
     created_at timestamp without time zone NOT NULL DEFAULT (current_timestamp AT TIME ZONE 'UTC'),
 

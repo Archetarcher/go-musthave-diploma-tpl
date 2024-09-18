@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS order_accrual
     user_id INT NOT NULL,
     order_id BIGINT NOT NULL UNIQUE,
     status VARCHAR(10) NOT NULL,
-    amount BIGINT NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
 
     uploaded_at timestamp without time zone NOT NULL DEFAULT (current_timestamp AT TIME ZONE 'UTC'),
     processing_started_at timestamp without time zone  NULL,

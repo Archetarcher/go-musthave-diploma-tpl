@@ -3,10 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-playground/validator/v10"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 )
@@ -41,6 +43,7 @@ func (h *AuthHandler) Register(writer http.ResponseWriter, request *http.Request
 		return
 	}
 
+	writer.Header().Set("Authorization", spew.Sprintf("Bearer %s", response.Token))
 	sendResponse(enc, response, http.StatusOK, writer)
 
 }
@@ -60,7 +63,7 @@ func (h *AuthHandler) Login(writer http.ResponseWriter, request *http.Request) {
 		sendResponse(enc, sErr, sErr.Code, writer)
 		return
 	}
-
+	writer.Header().Set("Authorization", spew.Sprintf("Bearer %s", response.Token))
 	sendResponse(enc, response, http.StatusOK, writer)
 
 }
@@ -93,7 +96,7 @@ func validateAuthRequest(request *http.Request) (*domain.AuthRequest, *RestError
 			Err:     err,
 		}
 	}
-	fmt.Println(u)
+	logger.Log.Info("user info", zap.Any("user", u))
 
 	v := validator.New()
 	err = v.Struct(u)

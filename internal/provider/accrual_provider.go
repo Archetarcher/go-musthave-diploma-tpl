@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/config"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -23,8 +24,8 @@ type OrderAccrualRepository interface {
 	Create(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error)
 	Update(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error)
 	GetAllByUser(ctx context.Context, user int) ([]domain.OrderAccrual, error)
-	GetOrderByUser(ctx context.Context, user int, order uint64) (*domain.OrderAccrual, error)
-	GetById(ctx context.Context, order uint64) (*domain.OrderAccrual, error)
+	GetOrderByUser(ctx context.Context, user int, order string) (*domain.OrderAccrual, error)
+	GetById(ctx context.Context, order string) (*domain.OrderAccrual, error)
 	GetOrdersByStatus(ctx context.Context, status []string) ([]domain.OrderAccrual, error)
 }
 type UserRepository interface {
@@ -35,8 +36,8 @@ type UserRepository interface {
 }
 
 func CreateNewAccrualProvider(userRepository UserRepository, accrualRepository OrderAccrualRepository, config *config.AppConfig) *AccrualProvider {
+	logger.Log.Info("creating accrual provider")
 
-	fmt.Println("creating accrual provider")
 	return &AccrualProvider{
 		accrualRepo: accrualRepository,
 		userRepo:    userRepository,
@@ -46,7 +47,7 @@ func CreateNewAccrualProvider(userRepository UserRepository, accrualRepository O
 }
 
 func (p *AccrualProvider) CreateWorkers(ctx context.Context, orders <-chan domain.OrderAccrual) {
-	fmt.Println("creating workers")
+	logger.Log.Info("creating workers")
 
 	for i := 1; i <= p.config.Worker.Count; i++ {
 		go p.worker(ctx, orders, i)
@@ -54,7 +55,7 @@ func (p *AccrualProvider) CreateWorkers(ctx context.Context, orders <-chan domai
 }
 
 func (p *AccrualProvider) Process(ctx context.Context, wg *sync.WaitGroup, ordersData chan<- domain.OrderAccrual) {
-	fmt.Println("start processing data")
+	logger.Log.Info("start processing data")
 
 	defer wg.Done()
 	defer close(ordersData)
@@ -66,9 +67,10 @@ func (p *AccrualProvider) Process(ctx context.Context, wg *sync.WaitGroup, order
 		orders, err := p.accrualRepo.GetOrdersByStatus(ctx, []string{domain.OrderStatusNew, domain.OrderStatusProcessed})
 		if err != nil {
 			//log error
+			logger.Log.Info("error fetching orders by status in provider", zap.Error(err))
 		}
-		fmt.Println("orders")
-		fmt.Println(orders)
+
+		logger.Log.Info("orders by status", zap.Any("order", orders))
 
 		for _, o := range orders {
 			// push to channel data
@@ -82,65 +84,58 @@ func (p *AccrualProvider) Process(ctx context.Context, wg *sync.WaitGroup, order
 
 func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.OrderAccrual, id int) {
 	for order := range orders {
-		fmt.Println("started worker")
-		fmt.Println(id)
-		fmt.Println(order)
+		logger.Log.Info("started worker", zap.Any("id", id), zap.Any("order", order))
+
 		//send request to accrual
-		accrualResponse, err := getAccrual(fmt.Sprintf("%s/%d", p.config.AccrualSystemAddress, order.OrderId), p.client)
+		accrualResponse, err := getAccrual(fmt.Sprintf("%s/api/orders/%s", p.config.AccrualSystemAddress, order.OrderId), p.client)
 		if err != nil {
-			fmt.Println("accrual request error")
-			fmt.Println(err)
-
+			logger.Log.Info("accrual request error", zap.Error(err))
 			// log error
 			continue
 		}
-
-		orderId, err := strconv.ParseUint(accrualResponse.Order, 10, 64)
-		if err != nil {
-			fmt.Println("order decode error")
-			fmt.Println(err)
-			// log error
+		if accrualResponse == nil {
+			logger.Log.Info("order not registered in accrual")
 			continue
 		}
+
 		// send request to accrual service, change status to processing
 		// if status processed:  update order status and amount, finish processing
 		// if status invalid: update order status , finish processing
 		// if status processing: do nothing, push order to queue again
 		// if status registered: do nothing, push order to queue again
 
-		if orderId != order.OrderId {
-			fmt.Println("wrong order  error")
-			fmt.Println(err)
+		if accrualResponse.Order != order.OrderId {
+			logger.Log.Info("wrong order  error", zap.Error(err))
 			// log error
 			continue
 
 		}
 		//processed
 		if accrualResponse.Status == domain.OrderStatusProcessed {
-			fmt.Println("status processed")
+			logger.Log.Info("status processed")
+
 			order.Status = domain.OrderStatusProcessed
 			order.Amount = &accrualResponse.Accrual
 			_, oErr := p.accrualRepo.Update(ctx, order)
 			if oErr != nil {
 				// log error
-				fmt.Println("order update   error")
-				fmt.Println(err)
+				logger.Log.Info("order update error", zap.Error(err))
 				continue
 			}
 
 			user, uErr := p.userRepo.GetUserById(ctx, int(order.UserId))
 			if uErr != nil {
-				fmt.Println("user get   error")
-				fmt.Println(err)
+				logger.Log.Info("user get error", zap.Error(err))
+
 				// log error
 				continue
 			}
-			user.Balance += accrualResponse.Accrual
+			*user.Balance += accrualResponse.Accrual
 
 			_, uErr = p.userRepo.UpdateUserBalance(ctx, *user)
 			if uErr != nil {
-				fmt.Println("user update   error")
-				fmt.Println(err)
+				logger.Log.Info("user update error", zap.Error(err))
+
 				// log error
 				continue
 			}
@@ -148,28 +143,27 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 		}
 		//invalid
 		if accrualResponse.Status == domain.OrderStatusInvalid {
-			fmt.Println("status invalid")
+			logger.Log.Info("status invalid")
 
 			order.Status = domain.OrderStatusInvalid
 			_, oErr := p.accrualRepo.Update(ctx, order)
 			if oErr != nil {
 				// log error
-				fmt.Println("order update  error")
-				fmt.Println(err)
+				logger.Log.Info("user update error", zap.Error(err))
+
 				continue
 			}
 			continue
 		}
 		if accrualResponse.Status == domain.OrderStatusProcessing ||
 			accrualResponse.Status == domain.OrderStatusRegistered {
-			fmt.Println("status processing")
+			logger.Log.Info("status processing")
 
 			order.Status = domain.OrderStatusProcessing
 			_, oErr := p.accrualRepo.Update(ctx, order)
 			if oErr != nil {
 				// log error
-				fmt.Println("order update  error")
-				fmt.Println(err)
+				logger.Log.Info("order update  error", zap.Error(err))
 				continue
 			}
 
@@ -186,6 +180,9 @@ func getAccrual(url string, client *resty.Client) (*domain.AccrualResponse, erro
 		return nil, &Error{Message: fmt.Sprintf("client: could not create request: %s\n", err.Error()), Time: time.Now(), Err: err}
 	}
 
+	if res.StatusCode() == http.StatusNoContent {
+		return nil, nil
+	}
 	if res.StatusCode() != http.StatusOK {
 		return nil, &Error{Message: fmt.Sprintf("client: responded with error: %s\n", err), Time: time.Now(), Err: err}
 	}

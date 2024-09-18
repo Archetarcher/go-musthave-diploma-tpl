@@ -2,7 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -10,8 +11,8 @@ func sendResponse(enc *json.Encoder, data interface{}, code int, w http.Response
 	w.WriteHeader(code)
 
 	if err := enc.Encode(data); err != nil {
-		fmt.Println("error ")
-		fmt.Println(err)
+		logger.Log.Info("error", zap.Any("err", err))
+
 	}
 
 }

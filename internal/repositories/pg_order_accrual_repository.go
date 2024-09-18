@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
+	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/store/pgsql"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 type PGOrderAccrualRepository struct {
@@ -18,29 +20,34 @@ func NewPGOrderAccrualRepository(store *pgsql.Store) *PGOrderAccrualRepository {
 	return &PGOrderAccrualRepository{store: store}
 }
 func (r *PGOrderAccrualRepository) Create(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error) {
-
-	_, err := r.store.DB.NamedExecContext(ctx, orderAccrualCreateQuery, map[string]interface{}{
-		"user_id":  order.UserId,
-		"order_id": order.OrderId,
-		"status":   order.Status,
-		"amount":   order.Amount,
-	})
+	logger.Log.Info("order data repo", zap.Any("order", order))
+	var orderId string
+	rows, err := r.store.DB.NamedQueryContext(ctx, orderAccrualCreateQuery, order)
 	if err != nil {
 		return nil, &Error{
 			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
 			Err:     err,
 		}
 	}
+	if rows.Next() {
+		err = rows.Scan(&orderId)
+		if err != nil {
+			return nil, &Error{
+				Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Create()"),
+				Err:     err,
+			}
+		}
+		order.OrderId = orderId
+	}
 
 	return &order, nil
 }
-func (r *PGOrderAccrualRepository) GetById(ctx context.Context, id uint64) (*domain.OrderAccrual, error) {
+func (r *PGOrderAccrualRepository) GetById(ctx context.Context, id string) (*domain.OrderAccrual, error) {
 	var order domain.OrderAccrual
 
 	err := r.store.DB.GetContext(ctx, &order, orderAccrualGetByIdQuery, id)
 
-	fmt.Println("order id ")
-	fmt.Println(order)
+	logger.Log.Info("order id", zap.Any("order", order))
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -55,14 +62,13 @@ func (r *PGOrderAccrualRepository) GetById(ctx context.Context, id uint64) (*dom
 	return &order, nil
 }
 
-func (r *PGOrderAccrualRepository) GetOrderByUser(ctx context.Context, userId int, orderId uint64) (*domain.OrderAccrual, error) {
+func (r *PGOrderAccrualRepository) GetOrderByUser(ctx context.Context, userId int, orderId string) (*domain.OrderAccrual, error) {
 	var order domain.OrderAccrual
 
 	err := r.store.DB.GetContext(ctx, &order,
 		orderAccrualGetByUserIdQuery, userId, orderId)
 
-	fmt.Println("order  user")
-	fmt.Println(order)
+	logger.Log.Info("order user", zap.Any("order", order))
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -126,11 +132,7 @@ func (r *PGOrderAccrualRepository) GetOrdersByStatus(ctx context.Context, status
 }
 func (r *PGOrderAccrualRepository) Update(ctx context.Context, order domain.OrderAccrual) (*domain.OrderAccrual, error) {
 
-	_, err := r.store.DB.NamedExecContext(ctx, orderAccrualUpdateQuery, map[string]interface{}{
-		"order_id": order.OrderId,
-		"status":   order.Status,
-		"amount":   order.Amount,
-	})
+	_, err := r.store.DB.NamedExecContext(ctx, orderAccrualUpdateQuery, order)
 	if err != nil {
 		return nil, &Error{
 			Message: fmt.Sprintf("%s, in %s", err.Error(), "PGOrderAccrualRepository Update()"),

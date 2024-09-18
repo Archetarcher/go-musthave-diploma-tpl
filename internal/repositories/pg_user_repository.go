@@ -17,17 +17,25 @@ func NewPGUserRepository(store *pgsql.Store) *PGUserRepository {
 	return &PGUserRepository{store: store}
 }
 func (r *PGUserRepository) Create(ctx context.Context, user domain.User) (*domain.User, error) {
-
-	_, err := r.store.DB.NamedExecContext(ctx, userCreateQuery, map[string]interface{}{
-		"login": user.Login,
-		"hash":  user.Hash,
-	})
+	var userId int
+	rows, err := r.store.DB.NamedQueryContext(ctx, userCreateQuery, user)
 	if err != nil {
 		return nil, &Error{
 			Time:    time.Now(),
 			Message: err.Error(),
 			Err:     err,
 		}
+	}
+	if rows.Next() {
+		err = rows.Scan(&userId)
+		if err != nil {
+			return nil, &Error{
+				Time:    time.Now(),
+				Message: err.Error(),
+				Err:     err,
+			}
+		}
+		user.ID = userId
 	}
 
 	return &user, nil
