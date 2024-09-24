@@ -74,11 +74,11 @@ func RequestLoggerMiddleware(next http.Handler) http.Handler {
 
 func (r *loggerResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
-	r.responseData.size += size // захватываем размер
+	r.responseData.size += size
 	return size, err
 }
 
 func (r *loggerResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode // захватываем код статуса
+	r.responseData.status = statusCode
 }

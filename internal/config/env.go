@@ -13,6 +13,9 @@ const (
 	envTokenExpiresName         = "TOKEN_EXPIRES_IN_MINUTES"
 	envWorkersCountName         = "WORKERS_COUNT"
 	envWorkersIntervalName      = "WORKERS_INTERVAL"
+	envRetryAfterName           = "ACCRUAL_RETRY_AFTER"
+	envRetryCountName           = "ACCRUAL_RETRY_COUNT"
+	envPollIntervalName         = "POLL_INTERVAL"
 )
 
 func getEnvOrDefault(env string, def any, t int) any {
@@ -48,5 +51,8 @@ func (c *AppConfig) parseEnv() {
 	c.Token.ExpiresInMinutes = getEnvOrDefault(envTokenExpiresName, c.Token.ExpiresInMinutes, 2).(int)
 	c.Worker.Count = getEnvOrDefault(envWorkersCountName, c.Worker.Count, 2).(int)
 	c.Worker.Interval = getEnvOrDefault(envWorkersIntervalName, c.Worker.Interval, 2).(int)
+	c.RetryAfter = getEnvOrDefault(envRetryAfterName, c.RetryAfter, 2).(int)
+	c.PollInterval = getEnvOrDefault(envPollIntervalName, c.PollInterval, 2).(int)
+	c.RetryCount = getEnvOrDefault(envRetryCountName, c.RetryCount, 2).(int)
 
 }

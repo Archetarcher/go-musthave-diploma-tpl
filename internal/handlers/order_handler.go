@@ -116,7 +116,6 @@ func (h *OrderHandler) GetUserBalance(writer http.ResponseWriter, request *http.
 
 }
 
-func (h *OrderHandler) ProcessAccrual() {}
 func validateOrderWithdrawalRequest(request *http.Request) (*domain.OrderWithdrawalRequest, *RestError) {
 	var o domain.OrderWithdrawalRequest
 

@@ -29,7 +29,7 @@ func main() {
 
 	storage, err := pgsql.NewStore(ctx, &pgsql.Config{DatabaseURI: c.DatabaseURI, MigrationsPath: c.MigrationsPath})
 	if err != nil {
-		logger.Log.Error("failed to init storage with error", zap.Error(err))
+		log.Fatal("failed to init storage with error", err)
 
 		return
 	}
@@ -58,7 +58,10 @@ func main() {
 
 		w := provider.CreateNewAccrualProvider(userRepository, orderAccrualRepository, c)
 		w.CreateWorkers(ctx, orders)
-		w.Process(ctx, &wg, orders)
+		err = w.Process(ctx, &wg, orders)
+		if err != nil {
+			logger.Log.Error("accrual provider failed with error", zap.Error(err))
+		}
 	}()
 
 	logger.Log.Info("starting server")

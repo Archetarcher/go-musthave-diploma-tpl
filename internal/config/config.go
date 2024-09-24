@@ -14,6 +14,9 @@ type AppConfig struct {
 	AccrualSystemAddress string
 	Token                Token
 	Worker               Worker
+	RetryAfter           int
+	RetryCount           int
+	PollInterval         int
 }
 type Token struct {
 	Key              string

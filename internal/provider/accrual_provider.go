@@ -54,30 +54,28 @@ func (p *AccrualProvider) CreateWorkers(ctx context.Context, orders <-chan domai
 	}
 }
 
-func (p *AccrualProvider) Process(ctx context.Context, wg *sync.WaitGroup, ordersData chan<- domain.OrderAccrual) {
+func (p *AccrualProvider) Process(ctx context.Context, wg *sync.WaitGroup, ordersData chan<- domain.OrderAccrual) error {
 	logger.Log.Info("start processing data")
 
 	defer wg.Done()
 	defer close(ordersData)
 
-	interval := 5
-	var requestInterval = time.Duration(interval) * time.Second
+	var interval = time.Duration(p.config.PollInterval) * time.Second
 
 	for {
 		orders, err := p.accrualRepo.GetOrdersByStatus(ctx, []string{domain.OrderStatusNew, domain.OrderStatusProcessed})
 		if err != nil {
-			//log error
 			logger.Log.Info("error fetching orders by status in provider", zap.Error(err))
+			return &Error{Message: "error fetching orders by status in provider", Time: time.Now(), Err: err}
 		}
 
 		logger.Log.Info("orders by status", zap.Any("order", orders))
 
 		for _, o := range orders {
-			// push to channel data
 			ordersData <- o
 		}
 
-		time.Sleep(requestInterval)
+		time.Sleep(interval)
 	}
 
 }
@@ -86,11 +84,9 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 	for order := range orders {
 		logger.Log.Info("started worker", zap.Any("id", id), zap.Any("order", order))
 
-		//send request to accrual
-		accrualResponse, err := getAccrual(fmt.Sprintf("%s/api/orders/%s", p.config.AccrualSystemAddress, order.OrderID), p.client)
+		accrualResponse, err := getAccrual(fmt.Sprintf("%s/api/orders/%s", p.config.AccrualSystemAddress, order.OrderID), p.client, p.config.RetryAfter, p.config.RetryCount)
 		if err != nil {
 			logger.Log.Info("accrual request error", zap.Error(err))
-			// log error
 			continue
 		}
 		if accrualResponse == nil {
@@ -98,19 +94,10 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 			continue
 		}
 
-		// send request to accrual service, change status to processing
-		// if status processed:  update order status and amount, finish processing
-		// if status invalid: update order status , finish processing
-		// if status processing: do nothing, push order to queue again
-		// if status registered: do nothing, push order to queue again
-
 		if accrualResponse.Order != order.OrderID {
 			logger.Log.Info("wrong order  error", zap.Error(err))
-			// log error
 			continue
-
 		}
-		//processed
 		if accrualResponse.Status == domain.OrderStatusProcessed {
 			logger.Log.Info("status processed")
 
@@ -118,7 +105,6 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 			order.Amount = &accrualResponse.Accrual
 			_, oErr := p.accrualRepo.Update(ctx, order)
 			if oErr != nil {
-				// log error
 				logger.Log.Info("order update error", zap.Error(err))
 				continue
 			}
@@ -126,8 +112,6 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 			user, uErr := p.userRepo.GetUserByID(ctx, int(order.UserID))
 			if uErr != nil {
 				logger.Log.Info("user get error", zap.Error(err))
-
-				// log error
 				continue
 			}
 			*user.Balance += accrualResponse.Accrual
@@ -135,20 +119,16 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 			_, uErr = p.userRepo.UpdateUserBalance(ctx, *user)
 			if uErr != nil {
 				logger.Log.Info("user update error", zap.Error(err))
-
-				// log error
 				continue
 			}
 			continue
 		}
-		//invalid
 		if accrualResponse.Status == domain.OrderStatusInvalid {
 			logger.Log.Info("status invalid")
 
 			order.Status = domain.OrderStatusInvalid
 			_, oErr := p.accrualRepo.Update(ctx, order)
 			if oErr != nil {
-				// log error
 				logger.Log.Info("user update error", zap.Error(err))
 
 				continue
@@ -162,7 +142,6 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 			order.Status = domain.OrderStatusProcessing
 			_, oErr := p.accrualRepo.Update(ctx, order)
 			if oErr != nil {
-				// log error
 				logger.Log.Info("order update  error", zap.Error(err))
 				continue
 			}
@@ -172,7 +151,7 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 	}
 }
 
-func getAccrual(url string, client *resty.Client) (*domain.AccrualResponse, error) {
+func getAccrual(url string, client *resty.Client, retryAfter int, retryCount int) (*domain.AccrualResponse, error) {
 	res, err := client.
 		R().
 		Get(url)
@@ -182,6 +161,13 @@ func getAccrual(url string, client *resty.Client) (*domain.AccrualResponse, erro
 
 	if res.StatusCode() == http.StatusNoContent {
 		return nil, nil
+	}
+	if res.StatusCode() == http.StatusTooManyRequests {
+		time.Sleep(time.Duration(retryAfter) * time.Second)
+		if retryCount <= 0 {
+			return nil, &Error{Message: fmt.Sprintf("client: responded with error: %s\n", err), Time: time.Now(), Err: err}
+		}
+		return getAccrual(url, client, retryAfter, retryCount-1)
 	}
 	if res.StatusCode() != http.StatusOK {
 		return nil, &Error{Message: fmt.Sprintf("client: responded with error: %s\n", err), Time: time.Now(), Err: err}

@@ -9,6 +9,7 @@ type Error struct {
 	Time    time.Time
 	Message string
 	Err     error
+	Code    int
 }
 
 func (e *Error) Error() string {
