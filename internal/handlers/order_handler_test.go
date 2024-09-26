@@ -13,18 +13,18 @@ import (
 	"testing"
 )
 
-func setupToken(srv *httptest.Server) (error, *domain.AuthResponse) {
+func setupToken(srv *httptest.Server) (*domain.AuthResponse, error) {
 	res, err := resty.New().R().SetBody(authRequest).Post(fmt.Sprintf("%s/api/user/login", srv.URL))
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	var response domain.AuthResponse
 
 	err = json.Unmarshal(res.Body(), &response)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
-	return nil, &response
+	return &response, nil
 }
 func init() {
 
@@ -32,10 +32,10 @@ func init() {
 func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 	srv := setup()
 
-	err, response := setupToken(srv)
+	response, err := setupToken(srv)
 	require.NoError(t, err, "Не удалось авторизовать пользователя", srv, err)
-	orderId := 656505266020341
-	invalidOrderId := 12345678902
+	orderID := 656505266020341
+	invalidOrderID := 12345678902
 
 	defer srv.Close()
 
@@ -59,7 +59,7 @@ func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 				query:   "/api/user/orders",
 				method:  http.MethodPost,
 				headers: map[string]string{"Authorization": "Bearer " + response.Token},
-				body:    fmt.Sprintf("%d", orderId),
+				body:    fmt.Sprintf("%d", orderID),
 			},
 			want: want{
 				code: http.StatusAccepted,
@@ -71,7 +71,7 @@ func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 				query:   "/api/user/orders",
 				method:  http.MethodPost,
 				headers: map[string]string{"Authorization": "Bearer " + response.Token},
-				body:    fmt.Sprintf("%d", orderId),
+				body:    fmt.Sprintf("%d", orderID),
 			},
 			want: want{
 				code: http.StatusOK,
@@ -83,7 +83,7 @@ func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 				query:   "/api/user/orders",
 				method:  http.MethodPost,
 				headers: map[string]string{"Authorization": "Bearer " + response.Token},
-				body:    fmt.Sprintf("\"%d\"", orderId),
+				body:    fmt.Sprintf("\"%d\"", orderID),
 			},
 			want: want{
 				code: http.StatusBadRequest,
@@ -95,7 +95,7 @@ func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 				query:   "/api/user/orders",
 				method:  http.MethodPost,
 				headers: map[string]string{},
-				body:    fmt.Sprintf("%d", orderId),
+				body:    fmt.Sprintf("%d", orderID),
 			},
 			want: want{
 				code: http.StatusUnauthorized,
@@ -107,7 +107,7 @@ func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 				query:   "/api/user/orders",
 				method:  http.MethodPost,
 				headers: map[string]string{"Authorization": "Bearer " + response.Token},
-				body:    fmt.Sprintf("%d", invalidOrderId),
+				body:    fmt.Sprintf("%d", invalidOrderID),
 			},
 			want: want{
 				code: http.StatusUnprocessableEntity,
@@ -135,11 +135,11 @@ func TestOrderHandler_RegisterAccrualOrder(t *testing.T) {
 
 func TestOrderHandler_RegisterWithdrawalOrder(t *testing.T) {
 	srv := setup()
-	err, response := setupToken(srv)
+	response, err := setupToken(srv)
 
 	require.NoError(t, err, "Не удалось авторизовать пользователя")
-	invalidOrderId := 12345678902
-	orderId := 656505266020341
+	invalidOrderID := 12345678902
+	orderID := 656505266020341
 
 	defer srv.Close()
 
@@ -163,7 +163,7 @@ func TestOrderHandler_RegisterWithdrawalOrder(t *testing.T) {
 				query:   "/api/user/balance/withdraw",
 				method:  http.MethodPost,
 				headers: map[string]string{"Authorization": "Bearer " + response.Token},
-				body:    domain.OrderWithdrawalRequest{OrderID: fmt.Sprintf("%d", orderId), Sum: rand.Float64()},
+				body:    domain.OrderWithdrawalRequest{OrderID: fmt.Sprintf("%d", orderID), Sum: rand.Float64()},
 			},
 			want: want{
 				code: http.StatusPaymentRequired,
@@ -187,7 +187,7 @@ func TestOrderHandler_RegisterWithdrawalOrder(t *testing.T) {
 				query:   "/api/user/balance/withdraw",
 				method:  http.MethodPost,
 				headers: map[string]string{"Authorization": "Bearer " + response.Token},
-				body:    domain.OrderWithdrawalRequest{OrderID: fmt.Sprintf("%d", invalidOrderId), Sum: rand.Float64()},
+				body:    domain.OrderWithdrawalRequest{OrderID: fmt.Sprintf("%d", invalidOrderID), Sum: rand.Float64()},
 			},
 			want: want{
 				code: http.StatusUnprocessableEntity,
@@ -217,7 +217,7 @@ func TestOrderHandler_RegisterWithdrawalOrder(t *testing.T) {
 func TestOrderHandler_GetAllAccrual(t *testing.T) {
 	srv := setup()
 
-	err, response := setupToken(srv)
+	response, err := setupToken(srv)
 	require.NoError(t, err, "Не удалось получить токен")
 
 	defer srv.Close()
@@ -279,7 +279,7 @@ func TestOrderHandler_GetAllAccrual(t *testing.T) {
 func TestOrderHandler_GetAllWithdrawal(t *testing.T) {
 	srv := setup()
 
-	err, response := setupToken(srv)
+	response, err := setupToken(srv)
 	require.NoError(t, err, "Не удалось получить токен")
 
 	defer srv.Close()
