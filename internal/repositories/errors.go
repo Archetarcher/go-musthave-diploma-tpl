@@ -5,7 +5,21 @@ import (
 	"time"
 )
 
+const (
+	StatusDBTransactionException = 0
+)
+
+func ErrorStatusText(code int) string {
+	switch code {
+	case StatusDBTransactionException:
+		return "Database Transaction Exception"
+	default:
+		return ""
+	}
+}
+
 type Error struct {
+	Code    time.Time
 	Time    time.Time
 	Message string
 	Err     error

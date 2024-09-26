@@ -8,7 +8,7 @@ import (
 
 func MountRoutes(router chi.Router, tokenConfig config.Token, orderHandler *handlers.OrderHandler, authHandler *handlers.AuthHandler) {
 	router.Route("/api/user", func(r chi.Router) {
-		NewAuthRoute(r, authHandler, tokenConfig)
+		NewAuthRoute(r, authHandler)
 		NewOrderRoute(r, orderHandler, tokenConfig)
 	})
 }

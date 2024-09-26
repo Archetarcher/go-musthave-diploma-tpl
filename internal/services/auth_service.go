@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/config"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
-	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/handlers"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/util"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -15,31 +15,33 @@ type AuthService struct {
 	repo        UserRepository
 	tokenConfig config.Token
 }
+
 type UserRepository interface {
 	Create(ctx context.Context, user domain.User) (*domain.User, error)
 	GetUserByLogin(ctx context.Context, login string) (*domain.User, error)
 	GetUserByID(ctx context.Context, user int) (*domain.User, error)
 	UpdateUserBalance(ctx context.Context, user domain.User) (*domain.User, error)
+	RunInTx(fn func(tx *sql.Tx) *domain.Error) *domain.Error
 }
 
 func NewAuthService(repo UserRepository, tokenConfig config.Token) *AuthService {
 	return &AuthService{repo: repo, tokenConfig: tokenConfig}
 }
 
-func (s *AuthService) Register(ctx context.Context, request *domain.AuthRequest) (*domain.AuthResponse, *handlers.RestError) {
+func (s *AuthService) Register(ctx context.Context, request *domain.AuthRequest) (*domain.AuthResponse, *domain.Error) {
 
 	user, err := s.repo.GetUserByLogin(ctx, request.Login)
 	if err != nil {
-		return nil, &handlers.RestError{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
+		return nil, &domain.Error{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
 	}
 
 	if user != nil {
-		return nil, &handlers.RestError{Code: http.StatusConflict, Message: "user already exists with this login", Err: err}
+		return nil, &domain.Error{Code: http.StatusConflict, Message: "user already exists with this login", Err: err}
 	}
 
 	hash, err := getPasswordHash(request.Password)
 	if err != nil {
-		return nil, &handlers.RestError{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
+		return nil, &domain.Error{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
 	}
 
 	user, err = s.repo.Create(ctx, domain.User{
@@ -48,12 +50,12 @@ func (s *AuthService) Register(ctx context.Context, request *domain.AuthRequest)
 	})
 
 	if err != nil {
-		return nil, &handlers.RestError{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
+		return nil, &domain.Error{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
 	}
 
 	token, err := util.CreateToken(user, s.tokenConfig)
 	if err != nil {
-		return nil, &handlers.RestError{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
+		return nil, &domain.Error{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
 	}
 
 	return &domain.AuthResponse{
@@ -62,23 +64,23 @@ func (s *AuthService) Register(ctx context.Context, request *domain.AuthRequest)
 	}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, request *domain.AuthRequest) (*domain.AuthResponse, *handlers.RestError) {
+func (s *AuthService) Login(ctx context.Context, request *domain.AuthRequest) (*domain.AuthResponse, *domain.Error) {
 	user, err := s.repo.GetUserByLogin(ctx, request.Login)
 	if err != nil {
-		return nil, &handlers.RestError{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
+		return nil, &domain.Error{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
 	}
 
 	if user == nil {
-		return nil, &handlers.RestError{Code: http.StatusUnauthorized, Message: "bad credentials user not found", Err: err}
+		return nil, &domain.Error{Code: http.StatusUnauthorized, Message: "bad credentials user not found", Err: err}
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.Hash), []byte(request.Password)) != nil {
-		return nil, &handlers.RestError{Code: http.StatusUnauthorized, Message: "bad credentials, login password pare are not valid", Err: err}
+		return nil, &domain.Error{Code: http.StatusUnauthorized, Message: "bad credentials, login password pare are not valid", Err: err}
 	}
 
 	token, err := util.CreateToken(user, s.tokenConfig)
 	if err != nil {
-		return nil, &handlers.RestError{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
+		return nil, &domain.Error{Code: http.StatusInternalServerError, Message: err.Error(), Err: err}
 	}
 
 	return &domain.AuthResponse{

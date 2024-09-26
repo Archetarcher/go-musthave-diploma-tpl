@@ -1,10 +1,6 @@
-package services
+package domain
 
 import "fmt"
-
-const (
-	StatusDBTransactionException = 0
-)
 
 type Error struct {
 	Code    int    `json:"code"`
@@ -13,5 +9,5 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("error occured in service. error: %s", e.Message)
+	return fmt.Sprintf("error occured. error: %s", e.Message)
 }

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/config"
@@ -33,6 +34,7 @@ type UserRepository interface {
 	GetUserByLogin(ctx context.Context, login string) (*domain.User, error)
 	GetUserByID(ctx context.Context, user int) (*domain.User, error)
 	UpdateUserBalance(ctx context.Context, user domain.User) (*domain.User, error)
+	RunInTx(fn func(tx *sql.Tx) *domain.Error) *domain.Error
 }
 
 func CreateNewAccrualProvider(userRepository UserRepository, accrualRepository OrderAccrualRepository, config *config.AppConfig) *AccrualProvider {
@@ -101,27 +103,32 @@ func (p *AccrualProvider) worker(ctx context.Context, orders <-chan domain.Order
 		if accrualResponse.Status == domain.OrderStatusProcessed {
 			logger.Log.Info("status processed")
 
-			order.Status = domain.OrderStatusProcessed
-			order.Amount = &accrualResponse.Accrual
-			_, oErr := p.accrualRepo.Update(ctx, order)
-			if oErr != nil {
-				logger.Log.Info("order update error", zap.Error(err))
-				continue
-			}
+			tErr := p.userRepo.RunInTx(func(tx *sql.Tx) *domain.Error {
+				order.Status = domain.OrderStatusProcessed
+				order.Amount = &accrualResponse.Accrual
+				_, oErr := p.accrualRepo.Update(ctx, order)
+				if oErr != nil {
+					return &domain.Error{Message: "order update error", Err: err}
+				}
 
-			user, uErr := p.userRepo.GetUserByID(ctx, int(order.UserID))
-			if uErr != nil {
-				logger.Log.Info("user get error", zap.Error(err))
-				continue
-			}
-			*user.Balance += accrualResponse.Accrual
+				user, uErr := p.userRepo.GetUserByID(ctx, int(order.UserID))
+				if uErr != nil {
+					return &domain.Error{Message: "user get error", Err: err}
+				}
+				*user.Balance += accrualResponse.Accrual
 
-			_, uErr = p.userRepo.UpdateUserBalance(ctx, *user)
-			if uErr != nil {
-				logger.Log.Info("user update error", zap.Error(err))
-				continue
+				_, uErr = p.userRepo.UpdateUserBalance(ctx, *user)
+				if uErr != nil {
+					return &domain.Error{Message: "user update error", Err: err}
+				}
+				return nil
+			})
+
+			if tErr != nil {
+				logger.Log.Info("error updating balance", zap.Error(err))
 			}
 			continue
+
 		}
 		if accrualResponse.Status == domain.OrderStatusInvalid {
 			logger.Log.Info("status invalid")

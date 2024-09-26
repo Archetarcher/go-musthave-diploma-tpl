@@ -6,7 +6,6 @@ import (
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/domain"
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/logger"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 	"io"
@@ -18,12 +17,11 @@ type AuthHandler struct {
 }
 
 type AuthService interface {
-	Register(ctx context.Context, user *domain.AuthRequest) (*domain.AuthResponse, *RestError)
-	Login(ctx context.Context, user *domain.AuthRequest) (*domain.AuthResponse, *RestError)
+	Register(ctx context.Context, user *domain.AuthRequest) (*domain.AuthResponse, *domain.Error)
+	Login(ctx context.Context, user *domain.AuthRequest) (*domain.AuthResponse, *domain.Error)
 }
 
 func NewAuthHandler(service AuthService) *AuthHandler {
-
 	return &AuthHandler{service: service}
 }
 
@@ -65,14 +63,6 @@ func (h *AuthHandler) Login(writer http.ResponseWriter, request *http.Request) {
 	}
 	writer.Header().Set("Authorization", spew.Sprintf("Bearer %s", response.Token))
 	sendResponse(enc, response, http.StatusOK, writer)
-
-}
-func (h *AuthHandler) User(writer http.ResponseWriter, request *http.Request) {
-	enc := json.NewEncoder(writer)
-	writer.Header().Set("Content-Type", "application/json")
-	_, claims, _ := jwtauth.FromContext(request.Context())
-
-	sendResponse(enc, claims, http.StatusOK, writer)
 
 }
 

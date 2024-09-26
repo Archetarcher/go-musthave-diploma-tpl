@@ -38,10 +38,6 @@ func (t ParsedTime) MarshalJSON() ([]byte, error) {
 }
 
 const (
-	OrderTypeAccrual    = "accrual"
-	OrderTypeWithdrawal = "withdrawal"
-)
-const (
 	OrderStatusNew        = "NEW"
 	OrderStatusRegistered = "REGISTERED"
 	OrderStatusProcessing = "PROCESSING"

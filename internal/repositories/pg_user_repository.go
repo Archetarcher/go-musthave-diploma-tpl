@@ -94,3 +94,33 @@ func (r *PGUserRepository) GetUserByID(ctx context.Context, id int) (*domain.Use
 	}
 	return &user, nil
 }
+
+func (r *PGUserRepository) RunInTx(fn func(tx *sql.Tx) *domain.Error) *domain.Error {
+	tx, err := r.store.DB.Begin()
+	if err != nil {
+		return &domain.Error{
+			Message: fmt.Sprintf("%s, %s", ErrorStatusText(StatusDBTransactionException), err.Error()),
+			Code:    StatusDBTransactionException,
+		}
+	}
+
+	tErr := fn(tx)
+	if tErr == nil {
+		cErr := tx.Commit()
+		if cErr != nil {
+			return &domain.Error{
+				Message: fmt.Sprintf("%s, %s", ErrorStatusText(StatusDBTransactionException), cErr.Error()),
+				Code:    StatusDBTransactionException,
+			}
+		}
+		return nil
+	}
+
+	rollbackErr := tx.Rollback()
+	if rollbackErr != nil {
+		jErr := errors.Join(tErr, rollbackErr)
+		return &domain.Error{Code: tErr.Code, Message: tErr.Message, Err: jErr}
+	}
+
+	return nil
+}

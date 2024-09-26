@@ -18,11 +18,11 @@ type OrderHandler struct {
 }
 
 type OrderService interface {
-	RegisterAccrual(ctx context.Context, order *domain.OrderAccrualRequest) (*domain.SuccessResponse, *RestError)
-	RegisterWithdrawal(ctx context.Context, order *domain.OrderWithdrawalRequest) (*domain.SuccessResponse, *RestError)
-	GetAllAccrual(ctx context.Context) ([]domain.OrderAccrual, *RestError)
-	GetAllWithdrawal(ctx context.Context) ([]domain.OrderWithdrawal, *RestError)
-	GetUserBalance(ctx context.Context) (*domain.UserBalanceResponse, *RestError)
+	RegisterAccrual(ctx context.Context, order *domain.OrderAccrualRequest) (*domain.SuccessResponse, *domain.Error)
+	RegisterWithdrawal(ctx context.Context, order *domain.OrderWithdrawalRequest) (*domain.SuccessResponse, *domain.Error)
+	GetAllAccrual(ctx context.Context) ([]domain.OrderAccrual, *domain.Error)
+	GetAllWithdrawal(ctx context.Context) ([]domain.OrderWithdrawal, *domain.Error)
+	GetUserBalance(ctx context.Context) (*domain.UserBalanceResponse, *domain.Error)
 }
 
 func NewOrderHandler(service OrderService) *OrderHandler {
@@ -151,7 +151,7 @@ func validateOrderWithdrawalRequest(request *http.Request) (*domain.OrderWithdra
 	if err != nil {
 		return nil, &RestError{
 			Code:    http.StatusUnprocessableEntity,
-			Message: "invalid order format",
+			Message: "invalid order format conversion",
 			Err:     err,
 		}
 	}
