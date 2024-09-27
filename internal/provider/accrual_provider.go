@@ -11,7 +11,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -56,10 +55,9 @@ func (p *AccrualProvider) CreateWorkers(ctx context.Context, orders <-chan domai
 	}
 }
 
-func (p *AccrualProvider) Process(ctx context.Context, wg *sync.WaitGroup, ordersData chan<- domain.OrderAccrual) error {
+func (p *AccrualProvider) Process(ctx context.Context, ordersData chan<- domain.OrderAccrual) error {
 	logger.Log.Info("start processing data")
 
-	defer wg.Done()
 	defer close(ordersData)
 
 	var interval = time.Duration(p.config.PollInterval) * time.Second

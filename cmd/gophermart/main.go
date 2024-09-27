@@ -13,7 +13,6 @@ import (
 	"github.com/Archetarcher/go-musthave-diploma-tpl.git/internal/store/pgsql"
 	"go.uber.org/zap"
 	"log"
-	"sync"
 )
 
 func main() {
@@ -53,12 +52,9 @@ func main() {
 		//start workers
 		orders := make(chan domain.OrderAccrual, c.Worker.Count*2)
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-
 		w := provider.CreateNewAccrualProvider(userRepository, orderAccrualRepository, c)
 		w.CreateWorkers(ctx, orders)
-		err = w.Process(ctx, &wg, orders)
+		err = w.Process(ctx, orders)
 		if err != nil {
 			logger.Log.Error("accrual provider failed with error", zap.Error(err))
 		}
